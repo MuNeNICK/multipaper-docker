@@ -6,6 +6,18 @@ on:
       version:
         required: true
         type: string
+      build_number:
+        required: false
+        type: string
+        description: "Build number (e.g. 58). Required if not using auto-detection."
+      server_jar_name:
+        required: false
+        type: string
+        description: "Server JAR filename (e.g. multipaper-1.20.1-58.jar). Required if not using auto-detection."
+      master_jar_name:
+        required: false
+        type: string
+        description: "Master JAR filename (e.g. multipaper-master-1.20.1-58.jar). Required if not using auto-detection."
       master_tags:
         required: true
         type: string
@@ -46,34 +58,58 @@ jobs:
           set -eux
 
           VERSION_INPUT="${{ inputs.version }}"
-          # Try to resolve latest patch for X.Y inputs
+          # Strip leading v if present
+          VERSION_INPUT="${VERSION_INPUT#v}"
+          
+          # Check if this is a major version (e.g. 1.20) or full version (e.g. 1.20.1)
           if [[ "$VERSION_INPUT" =~ ^[0-9]+\.[0-9]+$ ]]; then
-            FULL_VERSION=$(curl -sSL \
-              -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/MultiPaper/MultiPaper/tags" \
-              | jq -r --arg prefix "$VERSION_INPUT" '
-                [.[] | select(.name | test("^v?" + $prefix + "\\."))]
-                | [.[].name | ltrimstr("v")]
-                | sort_by(split(".") | map(tonumber))
-                | last
-              '
-            )
-            # Fallback to input if no matching tag found
-            if [[ -z "$FULL_VERSION" ]] || [[ "$FULL_VERSION" == "null" ]]; then
-              FULL_VERSION="$VERSION_INPUT"
+            echo "Major version detected: $VERSION_INPUT, finding latest minor version..."
+            # Get available versions from API
+            VERSIONS_RESPONSE=$(curl -sSL -H "Accept: application/json" "https://api.multipaper.io/v2/projects/multipaper/")
+            
+            # Extract matching versions for this major version
+            MATCHING_VERSIONS=$(echo "$VERSIONS_RESPONSE" | jq -r --arg prefix "$VERSION_INPUT" '.versions[] | select(startswith($prefix))')
+            
+            if [[ -z "$MATCHING_VERSIONS" ]]; then
+              echo "::error::No minor versions found for major version $VERSION_INPUT"
+              echo "::error::Available versions: $(echo "$VERSIONS_RESPONSE" | jq -r '.versions | join(", ")')"
+              exit 1
             fi
+            
+            # Sort versions and get the latest one
+            FULL_VERSION=$(echo "$MATCHING_VERSIONS" | sort -V | tail -n 1)
+            echo "Selected latest minor version: $FULL_VERSION"
           else
-            # Direct use for full version inputs (strip leading v)
-            FULL_VERSION="${VERSION_INPUT#v}"
+            # Already a full version
+            FULL_VERSION="$VERSION_INPUT"
           fi
+          
           echo "FULL_VERSION=$FULL_VERSION" >> $GITHUB_OUTPUT
-
-          # Fetch version metadata
-          RAW=$(curl -sSL -H "Accept: application/json" \
-                "https://api.multipaper.io/v2/projects/multipaper/versions/$FULL_VERSION")
-          BUILD=$(jq -r '.build' <<<"$RAW")
-          APP_NAME=$(jq -r '.downloads.application.name' <<<"$RAW")
-          MASTER_NAME=$(jq -r '.downloads.master.name' <<<"$RAW")
+          
+          # Check if we have direct build info provided
+          if [[ -n "${{ inputs.build_number }}" && -n "${{ inputs.server_jar_name }}" && -n "${{ inputs.master_jar_name }}" ]]; then
+            BUILD="${{ inputs.build_number }}"
+            APP_NAME="${{ inputs.server_jar_name }}"
+            MASTER_NAME="${{ inputs.master_jar_name }}"
+          else
+            # Try to fetch version metadata
+            echo "No direct build info provided, attempting to fetch from API..."
+            RAW=$(curl -sSL -H "Accept: application/json" \
+                  "https://api.multipaper.io/v2/projects/multipaper/versions/$FULL_VERSION")
+            
+            # Check if the version exists
+            if [[ "$(echo "$RAW" | jq -r 'has("error")')" == "true" ]]; then
+              ERROR_MSG=$(echo "$RAW" | jq -r '.error')
+              echo "::error::Failed to fetch version $FULL_VERSION: $ERROR_MSG"
+              echo "::error::Please check available versions at https://multipaper.io/download.html"
+              echo "::error::Alternatively, provide build_number, server_jar_name and master_jar_name as inputs"
+              exit 1
+            fi
+            
+            BUILD=$(jq -r '.build' <<<"$RAW")
+            APP_NAME=$(jq -r '.downloads.application.name' <<<"$RAW")
+            MASTER_NAME=$(jq -r '.downloads.master.name' <<<"$RAW")
+          fi
 
           # Output URLs
           echo "MULTIPAPER_URL=https://api.multipaper.io/v2/projects/multipaper/versions/$FULL_VERSION/builds/$BUILD/downloads/$APP_NAME" >> $GITHUB_OUTPUT
