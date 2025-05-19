@@ -19,22 +19,20 @@ services:
     image: ghcr.io/munenick/multipaper:1.20
     environment:
       - EULA=true                             # Minecraft EULAの自動承認
-      - JAVA_OPTS=-Xmx1G                      # サーバー1用のJavaオプション
+      - JAVA_OPTS=-Xmx1G                      # ノード用のJavaオプション
       - MULTIPAPER_MASTER_ADDRESS=master:35353 # マスターサーバーのアドレス
-      - BUNGEECORD_NAME=node1               # BungeeCord識別名
+      - BUNGEECORD_NAME=node1                 # BungeeCord識別名
       - PROP_VIEW_DISTANCE=16                 # server.propertiesのview-distance設定
       - SPIGOT_SETTINGS_BUNGEECORD=true       # spigot.ymlのbungeecord設定
       - NOGUI=true                            # GUIを無効化
-      # - PAPER_GLOBAL_PROXIES_PROXY_PROTOCOL=true  # paper.yml設定の例
-      # - MULTIPAPER_SYNC_SETTINGS_FILES_FILES_TO_SYNC_ON_STARTUP="config.yml;plugins/MyPlugin.jar"  # multipaper.yml設定の例
 
   node2:
     image: ghcr.io/munenick/multipaper:1.20
     environment:
       - EULA=true                             # Minecraft EULAの自動承認
-      - JAVA_OPTS=-Xmx1G                      # サーバー2用のJavaオプション
+      - JAVA_OPTS=-Xmx1G                      # ノード用のJavaオプション
       - MULTIPAPER_MASTER_ADDRESS=master:35353 # マスターサーバーのアドレス
-      - BUNGEECORD_NAME=node2               # BungeeCord識別名
+      - BUNGEECORD_NAME=node2                 # BungeeCord識別名
       - PROP_VIEW_DISTANCE=16                 # server.propertiesのview-distance設定
       - SPIGOT_SETTINGS_BUNGEECORD=true       # spigot.ymlのbungeecord設定
       - NOGUI=true                            # GUIを無効化

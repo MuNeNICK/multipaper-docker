@@ -65,14 +65,15 @@ JAVA_OPTS=${JAVA_OPTS:-""}
 # Process environment variables for system properties
 SYSTEM_PROPS=""
 
+# Handle master address if set - this is a critical setting
+if [[ -n "$MULTIPAPER_MASTER_ADDRESS" ]]; then
+    SYSTEM_PROPS="$SYSTEM_PROPS -DmultipaperMasterAddress=$MULTIPAPER_MASTER_ADDRESS"
+    echo "Setting MultiPaper Master Address to: $MULTIPAPER_MASTER_ADDRESS"
+fi
+
 # Handle bungeecord name if set
 if [[ -n "$BUNGEECORD_NAME" ]]; then
     SYSTEM_PROPS="$SYSTEM_PROPS -DbungeecordName=$BUNGEECORD_NAME"
-fi
-
-# Handle master address if set
-if [[ -n "$MULTIPAPER_MASTER_ADDRESS" ]]; then
-    SYSTEM_PROPS="$SYSTEM_PROPS -DmultipaperMasterAddress=$MULTIPAPER_MASTER_ADDRESS"
 fi
 
 # Handle server.properties overrides
@@ -114,7 +115,11 @@ if [[ "$NOGUI" == "true" ]]; then
 fi
 
 # Debug: show the final command being executed
-echo "Executing: java $JAVA_OPTS $SYSTEM_PROPS -jar $@ $NOGUI_OPT"
+echo "Starting MultiPaper with options:"
+echo "JVM options: $JAVA_OPTS"
+echo "System properties: $SYSTEM_PROPS"
+echo "Extra arguments: $NOGUI_OPT"
+echo "Full command: java $JAVA_OPTS $SYSTEM_PROPS -jar $@ $NOGUI_OPT"
 
 # Run the MultiPaper Server jar file with all options
 exec java $JAVA_OPTS $SYSTEM_PROPS -jar "$@" $NOGUI_OPT

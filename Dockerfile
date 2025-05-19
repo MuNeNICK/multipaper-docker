@@ -61,7 +61,7 @@ WORKDIR /app
 # Build the MultiPaper-Master container
 FROM base as master
 
-# Create an entry script for the master that fixes permissions
+# Create an entry script for the master that fixes permissions and handles environment variables
 COPY --chown=multipaper:multipaper --chmod=744 <<-"EOT" /opt/multipaper-master/entry.sh
 #!/usr/bin/env bash
 # Check and fix permissions for the app directory
@@ -77,15 +77,28 @@ if [ ! -w "$APP_DIR" ]; then
     fi
 fi
 
-# Run the MultiPaper Master jar file
-exec java -jar /opt/multipaper-master/multipaper-master.jar "$@"
+# Set default values for command line arguments
+MASTER_PORT=${MASTER_PORT:-35353}
+PROXY_PORT=${PROXY_PORT:-25565}
+
+# Additional JVM options
+JAVA_OPTS=${JAVA_OPTS:-""}
+
+# Show the final command being executed
+echo "Starting MultiPaper Master with options:"
+echo "MASTER_PORT: $MASTER_PORT"
+echo "PROXY_PORT: $PROXY_PORT"
+echo "JVM options: $JAVA_OPTS"
+echo "Full command: java $JAVA_OPTS -jar /opt/multipaper-master/multipaper-master.jar $MASTER_PORT $PROXY_PORT"
+
+# Run the MultiPaper Master jar file with environment variables
+exec java $JAVA_OPTS -jar /opt/multipaper-master/multipaper-master.jar $MASTER_PORT $PROXY_PORT
 EOT
 
 COPY --from=build --chown=multipaper:multipaper /artifacts/multipaper-master-license.txt /opt/multipaper-master/LICENSE.txt
 COPY --from=build --chown=multipaper:multipaper /artifacts/multipaper-master.jar /opt/multipaper-master/multipaper-master.jar
 
 ENTRYPOINT [ "/opt/multipaper-master/entry.sh" ]
-CMD [ "35353", "25565" ]
 
 EXPOSE 35353/tcp 25565/tcp
 VOLUME [ "/app" ]
@@ -107,8 +120,71 @@ if [[ -n "$EULA" ]]; then
     echo "Accepting the EULA..."
     sed -i "s/eula=.*$/eula=$EULA/g" eula.txt
 fi
-# Run the MultiPaper Server jar file
-java -jar $@
+
+# Default JVM options
+JAVA_OPTS=${JAVA_OPTS:-""}
+
+# Process environment variables for system properties
+SYSTEM_PROPS=""
+
+# Handle master address if set - this is a critical setting
+if [[ -n "$MULTIPAPER_MASTER_ADDRESS" ]]; then
+    SYSTEM_PROPS="$SYSTEM_PROPS -DmultipaperMasterAddress=$MULTIPAPER_MASTER_ADDRESS"
+    echo "Setting MultiPaper Master Address to: $MULTIPAPER_MASTER_ADDRESS"
+fi
+
+# Handle bungeecord name if set
+if [[ -n "$BUNGEECORD_NAME" ]]; then
+    SYSTEM_PROPS="$SYSTEM_PROPS -DbungeecordName=$BUNGEECORD_NAME"
+fi
+
+# Handle server.properties overrides
+for var in $(env | grep '^PROP_' | cut -d= -f1); do
+    prop_name=$(echo "$var" | sed 's/^PROP_//g' | tr '_' '-' | tr '[:upper:]' '[:lower:]')
+    prop_value=$(eval echo "\$$var")
+    SYSTEM_PROPS="$SYSTEM_PROPS -Dproperties.$prop_name=$prop_value"
+done
+
+# Handle paper.yml overrides
+for var in $(env | grep '^PAPER_' | cut -d= -f1); do
+    paper_path=$(echo "$var" | sed 's/^PAPER_//g' | tr '_' '.' | tr '[:upper:]' '[:lower:]')
+    paper_value=$(eval echo "\$$var")
+    SYSTEM_PROPS="$SYSTEM_PROPS -Dpaper.$paper_path=$paper_value"
+done
+
+# Handle spigot.yml overrides
+for var in $(env | grep '^SPIGOT_' | cut -d= -f1); do
+    spigot_path=$(echo "$var" | sed 's/^SPIGOT_//g' | tr '_' '.' | tr '[:upper:]' '[:lower:]')
+    spigot_value=$(eval echo "\$$var")
+    SYSTEM_PROPS="$SYSTEM_PROPS -Dspigot.$spigot_path=$spigot_value"
+done
+
+# Handle multipaper.yml overrides
+for var in $(env | grep '^MULTIPAPER_' | cut -d= -f1); do
+    # Skip the master address which was handled separately
+    if [[ "$var" == "MULTIPAPER_MASTER_ADDRESS" ]]; then
+        continue
+    fi
+    multipaper_path=$(echo "$var" | sed 's/^MULTIPAPER_//g' | tr '_' '.' | tr '[:upper:]' '[:lower:]')
+    multipaper_value=$(eval echo "\$$var")
+    SYSTEM_PROPS="$SYSTEM_PROPS -Dmultipaper.$multipaper_path=$multipaper_value"
+done
+
+# Handle nogui option
+NOGUI_OPT=""
+if [[ "$NOGUI" == "true" ]]; then
+    NOGUI_OPT="nogui"
+fi
+
+# Show the final command being executed
+echo "Starting MultiPaper with options:"
+echo "JVM options: $JAVA_OPTS"
+echo "System properties: $SYSTEM_PROPS"
+echo "Extra arguments: $NOGUI_OPT"
+echo "Full command: java $JAVA_OPTS $SYSTEM_PROPS -jar $@ $NOGUI_OPT"
+
+# Run the MultiPaper Server jar file with all options
+exec java $JAVA_OPTS $SYSTEM_PROPS -jar "$@" $NOGUI_OPT
 EOT
 COPY --from=build --chown=multipaper:multipaper /artifacts/multipaper-license.txt /opt/multipaper/LICENSE.txt
 COPY --from=build --chown=multipaper:multipaper /artifacts/eula.txt /opt/multipaper/eula.txt
