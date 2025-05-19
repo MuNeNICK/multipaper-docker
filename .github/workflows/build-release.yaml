@@ -52,7 +52,7 @@ jobs:
               -H "Accept: application/vnd.github+json" \
               "https://api.github.com/repos/MultiPaper/MultiPaper/tags" \
               | jq -r --arg prefix "$VERSION_INPUT" '
-                [.[]
+                [.[ ]
                  | select(.name | startswith($prefix + "."))
                  | .name]
                 | sort_by(split(".") | map(tonumber))
@@ -75,6 +75,13 @@ jobs:
           echo "MULTIPAPER_URL=https://api.multipaper.io/v2/projects/multipaper/versions/$FULL_VERSION/builds/$BUILD/downloads/$APP_NAME" >> $GITHUB_OUTPUT
           echo "MULTIPAPER_MASTER_URL=https://api.multipaper.io/v2/projects/multipaper/versions/$FULL_VERSION/builds/$BUILD/downloads/$MASTER_NAME" >> $GITHUB_OUTPUT
 
+      - name: Normalize image tags to lowercase
+        id: normalize_tags
+        shell: bash
+        run: |
+          echo "MASTER_TAG=$(echo '${{ inputs.master_tags }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+          echo "SERVER_TAG=$(echo '${{ inputs.server_tags }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Build base image
         uses: docker/build-push-action@v5
         with:
@@ -95,7 +102,7 @@ jobs:
           context: .
           file: releases/Dockerfile
           push: true
-          tags: ${{ inputs.master_tags }}
+          tags: ${{ steps.normalize_tags.outputs.MASTER_TAG }}
           target: master
           build-args: |
             RELEASE_URL=${{ steps.get_release.outputs.MULTIPAPER_MASTER_URL }}
@@ -112,7 +119,7 @@ jobs:
           context: .
           file: releases/Dockerfile
           push: true
-          tags: ${{ inputs.server_tags }}
+          tags: ${{ steps.normalize_tags.outputs.SERVER_TAG }}
           target: server
           build-args: |
             RELEASE_URL=${{ steps.get_release.outputs.MULTIPAPER_URL }}
