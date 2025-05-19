@@ -3,12 +3,12 @@
 [![Build from Releases](https://github.com/noevidenz/multipaper-docker/actions/workflows/build-releases.yaml/badge.svg?branch=main)](https://github.com/noevidenz/multipaper-docker/actions/workflows/build-releases.yaml)
 [![Build Image (edge)](https://github.com/noevidenz/multipaper-docker/actions/workflows/build-images.yaml/badge.svg)](https://github.com/noevidenz/multipaper-docker/actions/workflows/build-images.yaml)
 
-[MultiPaper Docker](https://github.com/noevidenz/multipaper-docker) automatically compiles the latest commit from the official MultiPaper repository and publishes the images to Docker Hub.
+[MultiPaper Docker](https://github.com/noevidenz/multipaper-docker) automatically compiles the latest commit from the official MultiPaper repository and publishes the images to GitHub Container Registry.
 
 ## Images
 
-- [noevidenz/multipaper-master](https://hub.docker.com/r/noevidenz/multipaper-master)
-- [noevidenz/multipaper](https://hub.docker.com/r/noevidenz/multipaper)
+- [ghcr.io/munenick/multipaper-master](https://github.com/MuNeNICK/multipaper-docker/pkgs/container/multipaper-master)
+- [ghcr.io/munenick/multipaper](https://github.com/MuNeNICK/multipaper-docker/pkgs/container/multipaper)
 
 ## Version Tags
 
@@ -17,10 +17,10 @@ _All versions are built nightly at midnight AEST._
 |   Tag    | Supported Architectures    | Description                                                                                                                                                                                                                          |
 |:--------:|:---------------------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 |  `edge`  | `amd64`, `arm64`, `arm/v7` | Built nightly using the latest commit on `main` from the official [MultiPaper](https://github.com/MultiPaper/MultiPaper) repository <br/><br/> _**Warning:** This version is not built from an official release and may be unstable_ |
-|  `1.20`  | `amd64`, `arm64`, `arm/v7` | Built using the  release from the 1.20 family                                                                                                                                                                                        |
-|  `1.19`  | `amd64`, `arm64`, `arm/v7` | Built using the  release from the 1.19 family                                                                                                                                                                                        |
-|  `1.18`  | `amd64`, `arm64`, `arm/v7` | Built using the  release from the 1.18 family <br/><br/>_**Warning:** This version is outdated and may not contain the latest security and stability features_                                                                       |
-| `latest` | `amd64`, `arm64`, `arm/v7` | **Deprecated** tag. Previously an alias for 1.19, but removed to prevent accidentally updating people's worlds from 1.19 to 1.20.                                                                                                        |
+|  `1.20`  | `amd64`, `arm64`, `arm/v7` | Built using the latest release from the 1.20 family                                                                                                                                                                                   |
+|  `1.19`  | `amd64`, `arm64`, `arm/v7` | Built using the latest release from the 1.19 family                                                                                                                                                                                   |
+|  `1.18`  | `amd64`, `arm64`, `arm/v7` | Built using the latest release from the 1.18 family <br/><br/>_**Warning:** This version is outdated and may not contain the latest security and stability features_                                                                 |
+| `latest` | `amd64`, `arm64`, `arm/v7` | An alias for the latest available version. This tag is automatically assigned to the most recent Minecraft version release.                                                                                                           |
 
 ## Usage
 
@@ -46,14 +46,14 @@ services:
 
   master:
     container_name: master
-    image: noevidenz/multipaper-master:1.20
+    image: ghcr.io/munenick/multipaper-master:1.20
     ports:
       - 25565:25565 # Opens the proxy port
     volumes:
       - ./master:/app # Required to access world files
   
   server:
-    image: noevidenz/multipaper:1.20
+    image: ghcr.io/munenick/multipaper:1.20
     environment:
       - EULA=true # Setting this to true will automatically accept the Minecraft EULA upon launch
       - JAVA_TOOL_OPTIONS=-Xmx1G
@@ -69,13 +69,13 @@ docker run -d \
     --name=multipaper-master 
     -p 25565:25565 
     -v $(pwd)/master:/app
-    noevidenz/multipaper-master
+    ghcr.io/munenick/multipaper-master:1.20
 
 # Start the MultiPaper server container
 docker run -d \
     -e EULA=true \
     -e JAVA_TOOL_OPTIONS="-Xmx1G -DmultipaperMasterAddress=multipaper-master:35353" \
-    noevidenz/multipaper [server_opts]
+    ghcr.io/munenick/multipaper:1.20 [server_opts]
 ```
 
 
@@ -126,8 +126,8 @@ docker-compose up -d
 
 ```bash 
 # Pull the updated images
-docker pull noevidenz/multipaper-master:1.20
-docker pull noevidenz/multipaper:1.20
+docker pull ghcr.io/munenick/multipaper-master:1.20
+docker pull ghcr.io/munenick/multipaper:1.20
 
 # List running containers
 docker ps | grep multipaper
@@ -150,14 +150,14 @@ If you want to customise the images:
 
 ```bash
 # Clone the repository
-git clone git@github.com:noevidenz/multipaper-docker.git
+git clone git@github.com:MuNeNICK/multipaper-docker.git
 
 cd multipaper-docker
 
 # Build the MultiPaper-Master image
-docker build --target master -t multipaper-master .
+docker build --target master -t ghcr.io/munenick/multipaper-master .
 # Build the Multipaper server image
-docker build --target server -t multipaper .
+docker build --target server -t ghcr.io/munenick/multipaper .
 ```
 
 ## Troubleshooting
@@ -175,7 +175,7 @@ Alternatively, you may add the following line to the `master` service to specify
 ```yaml
   master:
     container_name: master
-    image: noevidenz/multipaper-master:1.20
+    image: ghcr.io/munenick/multipaper-master:1.20
     user: root # this line sets the user inside the container
     ports:
       - 25565:25565 # Opens the proxy port
