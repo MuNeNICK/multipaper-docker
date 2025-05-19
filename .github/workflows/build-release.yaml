@@ -41,32 +41,37 @@ jobs:
 
       - name: Resolve version & get URLs
         id: get_release
+        shell: bash
         run: |
           set -eux
 
           VERSION_INPUT="${{ inputs.version }}"
-          # Determine full version (e.g., 1.20 -> 1.20.x)
           if [[ "$VERSION_INPUT" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            # Fetch tags and select latest patch version
             FULL_VERSION=$(curl -sSL \
               -H "Accept: application/vnd.github+json" \
               "https://api.github.com/repos/MultiPaper/MultiPaper/tags" \
-              | jq -r --arg prefix "$VERSION_INPUT" \
-                   '[.[] | select(.name | startswith($prefix + ".")) | .name] \
-                    | sort_by(split(".")|map(tonumber)) \
-                    | last')
+              | jq -r --arg prefix "$VERSION_INPUT" '
+                [.[]
+                 | select(.name | startswith($prefix + "."))
+                 | .name]
+                | sort_by(split(".") | map(tonumber))
+                | last
+              '
+            )
           else
             FULL_VERSION="$VERSION_INPUT"
           fi
           echo "FULL_VERSION=$FULL_VERSION" >> $GITHUB_OUTPUT
 
-          # Fetch version details
+          # Fetch version metadata
           RAW=$(curl -sSL -H "Accept: application/json" \
                 "https://api.multipaper.io/v2/projects/multipaper/versions/$FULL_VERSION")
-          BUILD=$(echo "$RAW" | jq -r '.build')
-          APP_NAME=$(echo "$RAW" | jq -r '.downloads.application.name')
-          MASTER_NAME=$(echo "$RAW" | jq -r '.downloads.master.name')
+          BUILD=$(jq -r '.build' <<<"$RAW")
+          APP_NAME=$(jq -r '.downloads.application.name' <<<"$RAW")
+          MASTER_NAME=$(jq -r '.downloads.master.name' <<<"$RAW")
 
-          # Set output variables
+          # Output URLs
           echo "MULTIPAPER_URL=https://api.multipaper.io/v2/projects/multipaper/versions/$FULL_VERSION/builds/$BUILD/downloads/$APP_NAME" >> $GITHUB_OUTPUT
           echo "MULTIPAPER_MASTER_URL=https://api.multipaper.io/v2/projects/multipaper/versions/$FULL_VERSION/builds/$BUILD/downloads/$MASTER_NAME" >> $GITHUB_OUTPUT
 
