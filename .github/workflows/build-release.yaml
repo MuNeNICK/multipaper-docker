@@ -118,12 +118,32 @@ jobs:
             
             echo "Found latest build number: $BUILD"
             
-            # Construct JAR filenames based on version and build
-            APP_NAME="multipaper-${FULL_VERSION}-${BUILD}.jar"
-            MASTER_NAME="multipaper-master-${FULL_VERSION}-${BUILD}.jar"
+            # Fetch specific build details to get exact file names
+            echo "Fetching details for build $BUILD..."
+            BUILD_DETAILS=$(curl -sSL -H "Accept: application/json" \
+                           "https://api.multipaper.io/v2/projects/multipaper/versions/$FULL_VERSION/builds/$BUILD")
             
-            echo "Constructed server JAR name: $APP_NAME"
-            echo "Constructed master JAR name: $MASTER_NAME"
+            # Check for API errors
+            if [[ "$(echo "$BUILD_DETAILS" | jq -r 'has("error")')" == "true" ]]; then
+              ERROR_MSG=$(echo "$BUILD_DETAILS" | jq -r '.error')
+              echo "::error::Failed to fetch build details: $ERROR_MSG"
+              exit 1
+            fi
+            
+            # Extract exact file names from build details
+            APP_NAME=$(echo "$BUILD_DETAILS" | jq -r '.downloads.application.name')
+            MASTER_NAME=$(echo "$BUILD_DETAILS" | jq -r '.downloads.master.name')
+            
+            # Verify we got valid file names
+            if [[ -z "$APP_NAME" ]] || [[ "$APP_NAME" == "null" ]] || \
+               [[ -z "$MASTER_NAME" ]] || [[ "$MASTER_NAME" == "null" ]]; then
+              echo "::error::Failed to extract file names from build details"
+              echo "::error::Build details API returned: $BUILD_DETAILS"
+              exit 1
+            fi
+            
+            echo "Found server JAR name: $APP_NAME"
+            echo "Found master JAR name: $MASTER_NAME"
           fi
 
           # Output URLs
