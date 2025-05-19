@@ -24,6 +24,11 @@ on:
       server_tags:
         required: true
         type: string
+      force_latest:
+        required: false
+        type: boolean
+        default: false
+        description: "If true, force tag this release as 'latest' regardless of version detection"
 
 jobs:
   build_release:
@@ -85,6 +90,18 @@ jobs:
           fi
           
           echo "FULL_VERSION=$FULL_VERSION" >> $GITHUB_OUTPUT
+          
+          # Determine if this is the latest version available
+          VERSIONS_RESPONSE=$(curl -sSL -H "Accept: application/json" "https://api.multipaper.io/v2/projects/multipaper/")
+          LATEST_VERSION=$(echo "$VERSIONS_RESPONSE" | jq -r '.versions | sort_by(.) | last')
+          
+          if [[ "$FULL_VERSION" == "$LATEST_VERSION" ]]; then
+            echo "This is the latest available version: $FULL_VERSION"
+            echo "IS_LATEST_VERSION=true" >> $GITHUB_OUTPUT
+          else
+            echo "This is not the latest version (latest is $LATEST_VERSION)"
+            echo "IS_LATEST_VERSION=false" >> $GITHUB_OUTPUT
+          fi
           
           # Check if we have direct build info provided
           if [[ -n "${{ inputs.build_number }}" && -n "${{ inputs.server_jar_name }}" && -n "${{ inputs.master_jar_name }}" ]]; then
@@ -154,8 +171,18 @@ jobs:
         id: normalize_tags
         shell: bash
         run: |
-          echo "MASTER_TAG=$(echo '${{ inputs.master_tags }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
-          echo "SERVER_TAG=$(echo '${{ inputs.server_tags }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+          MASTER_TAGS=$(echo '${{ inputs.master_tags }}' | tr '[:upper:]' '[:lower:]')
+          SERVER_TAGS=$(echo '${{ inputs.server_tags }}' | tr '[:upper:]' '[:lower:]')
+          
+          # Add latest tags if this is the latest version or if forced via input
+          if [[ "${{ steps.get_release.outputs.IS_LATEST_VERSION }}" == "true" || "${{ inputs.force_latest }}" == "true" ]]; then
+            echo "Adding 'latest' tags as this is the latest version (or forced)"
+            MASTER_TAGS="$MASTER_TAGS,ghcr.io/${{ github.repository_owner }}/multipaper-master:latest"
+            SERVER_TAGS="$SERVER_TAGS,ghcr.io/${{ github.repository_owner }}/multipaper:latest"
+          fi
+          
+          echo "MASTER_TAG=$MASTER_TAGS" >> $GITHUB_OUTPUT
+          echo "SERVER_TAG=$SERVER_TAGS" >> $GITHUB_OUTPUT
 
       - name: Build base image
         uses: docker/build-push-action@v5
