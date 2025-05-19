@@ -52,10 +52,8 @@ jobs:
               -H "Accept: application/vnd.github+json" \
               "https://api.github.com/repos/MultiPaper/MultiPaper/tags" \
               | jq -r --arg prefix "$VERSION_INPUT" '
-                [.
-                 | select(.name | test("^v?" + $prefix + "\\."))]
-                | .[].name
-                | ltrimstr("v")
+                [.[] | select(.name | test("^v?" + $prefix + "\\."))]
+                | [.[].name | ltrimstr("v")]
                 | sort_by(split(".") | map(tonumber))
                 | last
               '
