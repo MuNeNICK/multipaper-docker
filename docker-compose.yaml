@@ -11,33 +11,31 @@ services:
     volumes:
       - master-data:/app
     environment:
-      - MASTER_PORT=35353     # マスターサーバーデータベースポート
-      - PROXY_PORT=25565      # プロキシポート
-      - JAVA_OPTS=-Xmx512M    # マスターサーバー用のJavaオプション
+      - MASTER_PORT=35353
+      - PROXY_PORT=25565
+      - JAVA_OPTS=-Xmx512M
   
   node1:
     image: ghcr.io/munenick/multipaper:1.20
     environment:
-      - EULA=true                             # Minecraft EULAの自動承認
-      - JAVA_OPTS=-Xmx1G                      # ノード用のJavaオプション
-      - MULTIPAPER_MASTER_ADDRESS=master:35353 # マスターサーバーのアドレス
-      - BUNGEECORD_NAME=node1                 # BungeeCord識別名
-      - PROP_VIEW_DISTANCE=16                 # server.propertiesのview-distance設定
-      - SPIGOT_SETTINGS_BUNGEECORD=true       # spigot.ymlのbungeecord設定
-      - NOGUI=true                            # GUIを無効化
+      - EULA=true
+      - JAVA_OPTS=-Xmx1G
+      - MULTIPAPER_MASTER_ADDRESS=master:35353
+      - BUNGEECORD_NAME=node1
+      - PROP_VIEW_DISTANCE=16
+      - SPIGOT_SETTINGS_BUNGEECORD=true
+      - NOGUI=true
 
   node2:
     image: ghcr.io/munenick/multipaper:1.20
     environment:
-      - EULA=true                             # Minecraft EULAの自動承認
-      - JAVA_OPTS=-Xmx1G                      # ノード用のJavaオプション
-      - MULTIPAPER_MASTER_ADDRESS=master:35353 # マスターサーバーのアドレス
-      - BUNGEECORD_NAME=node2                 # BungeeCord識別名
-      - PROP_VIEW_DISTANCE=16                 # server.propertiesのview-distance設定
-      - SPIGOT_SETTINGS_BUNGEECORD=true       # spigot.ymlのbungeecord設定
-      - NOGUI=true                            # GUIを無効化
+      - EULA=true
+      - JAVA_OPTS=-Xmx1G
+      - MULTIPAPER_MASTER_ADDRESS=master:35353
+      - BUNGEECORD_NAME=node2
+      - PROP_VIEW_DISTANCE=16
+      - SPIGOT_SETTINGS_BUNGEECORD=true
+      - NOGUI=true
 
-# 名前付きボリュームを定義
 volumes:
   master-data:
-    # このボリュームはDockerが管理し、適切な権限が設定される
