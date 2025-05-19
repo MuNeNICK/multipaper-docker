@@ -9,15 +9,37 @@ services:
     ports:
       - 25565:25565
     volumes:
-      - ./config/master:/app
-  
-  server:
-    image: ghcr.io/munenick/multipaper:1.20
-    # volumes:
-    #   - ./config/server:/app
+      - master-data:/app
     environment:
-      - EULA=true # Setting this to true will automatically accept the Minecraft EULA upon launch
-      - JAVA_TOOL_OPTIONS=-Xmx1G
-        -DmultipaperMasterAddress=master:35353
-        -Dproperties.view-distance=16
-        -Dspigot.settings.bungeecord=true
+      - MASTER_PORT=35353     # マスターサーバーデータベースポート
+      - PROXY_PORT=25565      # プロキシポート
+      - JAVA_OPTS=-Xmx512M    # マスターサーバー用のJavaオプション
+  
+  node1:
+    image: ghcr.io/munenick/multipaper:1.20
+    environment:
+      - EULA=true                             # Minecraft EULAの自動承認
+      - JAVA_OPTS=-Xmx1G                      # サーバー1用のJavaオプション
+      - MULTIPAPER_MASTER_ADDRESS=master:35353 # マスターサーバーのアドレス
+      - BUNGEECORD_NAME=node1               # BungeeCord識別名
+      - PROP_VIEW_DISTANCE=16                 # server.propertiesのview-distance設定
+      - SPIGOT_SETTINGS_BUNGEECORD=true       # spigot.ymlのbungeecord設定
+      - NOGUI=true                            # GUIを無効化
+      # - PAPER_GLOBAL_PROXIES_PROXY_PROTOCOL=true  # paper.yml設定の例
+      # - MULTIPAPER_SYNC_SETTINGS_FILES_FILES_TO_SYNC_ON_STARTUP="config.yml;plugins/MyPlugin.jar"  # multipaper.yml設定の例
+
+  node2:
+    image: ghcr.io/munenick/multipaper:1.20
+    environment:
+      - EULA=true                             # Minecraft EULAの自動承認
+      - JAVA_OPTS=-Xmx1G                      # サーバー2用のJavaオプション
+      - MULTIPAPER_MASTER_ADDRESS=master:35353 # マスターサーバーのアドレス
+      - BUNGEECORD_NAME=node2               # BungeeCord識別名
+      - PROP_VIEW_DISTANCE=16                 # server.propertiesのview-distance設定
+      - SPIGOT_SETTINGS_BUNGEECORD=true       # spigot.ymlのbungeecord設定
+      - NOGUI=true                            # GUIを無効化
+
+# 名前付きボリュームを定義
+volumes:
+  master-data:
+    # このボリュームはDockerが管理し、適切な権限が設定される

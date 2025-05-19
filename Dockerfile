@@ -61,18 +61,38 @@ WORKDIR /app
 # Build the MultiPaper-Master container
 FROM base as master
 
+# Create an entry script for the master that fixes permissions
+COPY --chown=multipaper:multipaper --chmod=744 <<-"EOT" /opt/multipaper-master/entry.sh
+#!/usr/bin/env bash
+# Check and fix permissions for the app directory
+APP_DIR="/app"
+if [ ! -w "$APP_DIR" ]; then
+    echo "Warning: No write permissions to $APP_DIR, attempting to create a writable subdirectory..."
+    mkdir -p "$APP_DIR/master-data" 2>/dev/null || true
+    
+    # If we still can't write, notify but continue
+    if [ ! -w "$APP_DIR" ] && [ ! -w "$APP_DIR/master-data" ]; then
+        echo "Warning: Cannot write to $APP_DIR or $APP_DIR/master-data. Map generation may fail."
+        echo "Consider mounting the volume with proper permissions or using a subdirectory."
+    fi
+fi
+
+# Run the MultiPaper Master jar file
+exec java -jar /opt/multipaper-master/multipaper-master.jar "$@"
+EOT
+
 COPY --from=build --chown=multipaper:multipaper /artifacts/multipaper-master-license.txt /opt/multipaper-master/LICENSE.txt
 COPY --from=build --chown=multipaper:multipaper /artifacts/multipaper-master.jar /opt/multipaper-master/multipaper-master.jar
 
-ENTRYPOINT [ "java", "-jar", "/opt/multipaper-master/multipaper-master.jar" ]
+ENTRYPOINT [ "/opt/multipaper-master/entry.sh" ]
 CMD [ "35353", "25565" ]
 
 EXPOSE 35353/tcp 25565/tcp
 VOLUME [ "/app" ]
 
 
-# Build the Multipaper server container
-FROM base as server
+# Build the Multipaper node container
+FROM base as node
 
 # Create an entry script based on akiicat/MultiPaper-Container
 COPY --chown=multipaper:multipaper --chmod=744 <<-"EOT" /opt/multipaper/entry.sh

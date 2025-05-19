@@ -28,7 +28,7 @@ _All versions are built nightly at midnight AEST._
 
 The MultiPaper-Master service requires a directory be mounted to `/app`. This is the directory where all shared files will be stored, including world files.
 
-Create a directory (eg `master`) and mount it to the `/app` directory in the MultiPaper-Master container. (See the examples below)
+Create a directory (eg `master-data`) and mount it to the `/app` directory in the MultiPaper-Master container. (See the examples below)
 
 If you have existing world files you want to use, place them in this directory before starting the MultiPaper-Master container.
 
@@ -36,11 +36,9 @@ If you have existing world files you want to use, place them in this directory b
 
 Create the following `docker-compose.yaml` file, then simply run `docker-compose up -d` to launch the servers.
 
-(Note: The `multipaperMasterAddress` variable uses the service name `master` as a host name instead of specifying an IP address.)
-
 ```yaml
 ---
-version: "3"
+version: "3.8"
 
 services:
 
@@ -48,17 +46,39 @@ services:
     container_name: master
     image: ghcr.io/munenick/multipaper-master:1.20
     ports:
-      - 25565:25565 # Opens the proxy port
+      - 25565:25565
     volumes:
-      - ./master:/app # Required to access world files
+      - master-data:/app
+    environment:
+      - MASTER_PORT=35353     # マスターサーバーデータベースポート
+      - PROXY_PORT=25565      # プロキシポート
+      - JAVA_OPTS=-Xmx512M    # マスターサーバー用のJavaオプション
   
-  server:
+  node1:
     image: ghcr.io/munenick/multipaper:1.20
     environment:
-      - EULA=true # Setting this to true will automatically accept the Minecraft EULA upon launch
-      - JAVA_TOOL_OPTIONS=-Xmx1G
-        -DmultipaperMasterAddress=master:35353 
-        -Dspigot.settings.bungeecord=true
+      - EULA=true                             # Minecraft EULAの自動承認
+      - JAVA_OPTS=-Xmx1G                      # ノード用のJavaオプション
+      - MULTIPAPER_MASTER_ADDRESS=master:35353 # マスターサーバーのアドレス
+      - BUNGEECORD_NAME=node1                 # BungeeCord識別名
+      - PROP_VIEW_DISTANCE=16                 # server.propertiesのview-distance設定
+      - SPIGOT_SETTINGS_BUNGEECORD=true       # spigot.ymlのbungeecord設定
+      - NOGUI=true                            # GUIを無効化
+
+  node2:
+    image: ghcr.io/munenick/multipaper:1.20
+    environment:
+      - EULA=true                             # Minecraft EULAの自動承認
+      - JAVA_OPTS=-Xmx1G                      # ノード用のJavaオプション
+      - MULTIPAPER_MASTER_ADDRESS=master:35353 # マスターサーバーのアドレス
+      - BUNGEECORD_NAME=node2                 # BungeeCord識別名
+      - PROP_VIEW_DISTANCE=16                 # server.propertiesのview-distance設定
+      - SPIGOT_SETTINGS_BUNGEECORD=true       # spigot.ymlのbungeecord設定
+      - NOGUI=true                            # GUIを無効化
+
+volumes:
+  master-data:
+    # このボリュームはDockerが管理し、適切な権限が設定される
 ```
 
 ### Docker CLI
@@ -66,51 +86,92 @@ services:
 ```bash
 # Start the MultiPaper-Master container
 docker run -d \
-    --name=multipaper-master 
-    -p 25565:25565 
-    -v $(pwd)/master:/app
+    --name=multipaper-master \
+    -p 25565:25565 \
+    -v multipaper-master-data:/app \
+    -e MASTER_PORT=35353 \
+    -e PROXY_PORT=25565 \
+    -e JAVA_OPTS="-Xmx512M" \
     ghcr.io/munenick/multipaper-master:1.20
 
-# Start the MultiPaper server container
+# Start the MultiPaper node container
 docker run -d \
+    --name=multipaper-node1 \
     -e EULA=true \
-    -e JAVA_TOOL_OPTIONS="-Xmx1G -DmultipaperMasterAddress=multipaper-master:35353" \
-    ghcr.io/munenick/multipaper:1.20 [server_opts]
+    -e JAVA_OPTS="-Xmx1G" \
+    -e MULTIPAPER_MASTER_ADDRESS=multipaper-master:35353 \
+    -e BUNGEECORD_NAME=node1 \
+    -e PROP_VIEW_DISTANCE=16 \
+    -e SPIGOT_SETTINGS_BUNGEECORD=true \
+    -e NOGUI=true \
+    ghcr.io/munenick/multipaper:1.20
 ```
 
 
-## Configuring the Server
+## 環境変数によるコンフィグレーション
 
-MultiPaper provides support for updating the server configuration files files via system properties provided to the `java` command. You can see an example of this in the `JAVA_TOOL_OPTIONS` environment variable above.
+MultiPaperは環境変数を使用して様々な設定をカスタマイズできます。
 
-See the MultiPaper docs regarding [Command line options](https://github.com/MultiPaper/MultiPaper#command-line-options) for more information.
+### MultiPaper-Master の環境変数
 
-Configuration should be done via the method above whenever possible to ensure server containers are disposable.
+| 環境変数 | 説明 | デフォルト値 |
+| :--- | :--- | :--- |
+| `MASTER_PORT` | マスターデータベースがリッスンするポート | `35353` |
+| `PROXY_PORT` | プロキシのリッスンポート | `25565` |
+| `JAVA_OPTS` | JVM起動オプション（メモリ設定など） | なし |
 
-If you require direct access to the server files, you can attach a volume to the `/app` directory before launching the container.
+### MultiPaper Node の環境変数
+
+| 環境変数 | 説明 | 例 |
+| :--- | :--- | :--- |
+| `EULA` | Minecraft EULAの同意 | `true` |
+| `JAVA_OPTS` | JVM起動オプション | `-Xmx1G` |
+| `MULTIPAPER_MASTER_ADDRESS` | マスターサーバーのアドレス | `master:35353` |
+| `BUNGEECORD_NAME` | BungeeCord/Velocityでの識別名 | `node1` |
+| `NOGUI` | GUIを無効化 | `true` |
+| `PROP_*` | server.propertiesの設定 | `PROP_VIEW_DISTANCE=16` |
+| `PAPER_*` | paper.ymlの設定 | `PAPER_GLOBAL_PROXIES_PROXY_PROTOCOL=true` |
+| `SPIGOT_*` | spigot.ymlの設定 | `SPIGOT_SETTINGS_BUNGEECORD=true` |
+| `MULTIPAPER_*` | multipaper.ymlの設定 | `MULTIPAPER_SYNC_SETTINGS_FILES_FILES_TO_SYNC_ON_STARTUP=plugins/MyPlugin.jar` |
+
+#### 環境変数の命名規則
+
+- `PROP_*`: `server.properties`の設定を上書き
+  - `view-distance=16` → `PROP_VIEW_DISTANCE=16`
+  - ハイフン(-)はアンダースコア(_)に変換
+
+- `PAPER_*`: `paper.yml`の設定を上書き
+  - `paper.global.proxies.proxy-protocol=true` → `PAPER_GLOBAL_PROXIES_PROXY_PROTOCOL=true`
+  - ドット(.)と大文字/小文字はそのまま保持
+
+- `SPIGOT_*`: `spigot.yml`の設定を上書き
+  - `spigot.world-settings.default.entity-tracking-range.players=128` → `SPIGOT_WORLD_SETTINGS_DEFAULT_ENTITY_TRACKING_RANGE_PLAYERS=128`
+
+- `MULTIPAPER_*`: `multipaper.yml`の設定を上書き
+  - `multipaper.sync-settings.files.files-to-sync-on-startup` → `MULTIPAPER_SYNC_SETTINGS_FILES_FILES_TO_SYNC_ON_STARTUP`
 
 
-## Parameters
+## パラメータ
 
 ### MultiPaper-Master
 
-| Parameter | Function |
+| パラメータ | 機能 |
 | :---: | --- |
-| `-p 25565:25565` | Opens the port to the proxy |
-| `-p 35353:35353` | Opens the port to the MultiPaper Master server |
-| `-v ./master:/app` | Directory containing World files and other synced files <br>(Only required if Multipaper servers are connecting from outside the network) |
+| `-p 25565:25565` | プロキシへのポートを開く |
+| `-p 35353:35353` | MultiPaper Masterサーバーへのポートを開く |
+| `-v master-data:/app` | ワールドファイルと他の同期ファイルを含むディレクトリ |
 
-### MultiPaper Server
+### MultiPaper Node
 
-| Parameter | Function |
+| パラメータ | 機能 |
 | :---: | --- |
-| `-p 25565:25565` | Optional. Only required if connecting to a Master server outside of the network | 
-| `-e EULA=true` | Specifies that the EULA has been accepted. Required for the server to launch |
-| `-e JAVA_TOOL_OPTIONS="..."` | Sets the environment variable to pass options into Java at runtime |
-| `[server_opts]` | Optional parameters sent to the `multipaper.jar` (Default value: `--max-players=30`) |
+| `-p 25565:25565` | オプション。ネットワーク外からマスターサーバーに接続する場合のみ必要 | 
+| `-e EULA=true` | EULAを承認したことを指定。ノードの起動に必要 |
+| `-e JAVA_OPTS="..."` | Java実行時に渡すオプションを設定 |
+| その他の環境変数 | 上記の環境変数表を参照 |
 
 
-## Updating
+## 更新
 
 ### Docker Compose
 
@@ -136,7 +197,7 @@ docker ps | grep multipaper
 docker stop multipaper-master
 docker rm multipaper-master
 
-# Also stop any running server containers
+# Also stop any running node containers
 docker stop [container-name]
 docker rm [container-name]
 ```
@@ -156,29 +217,31 @@ cd multipaper-docker
 
 # Build the MultiPaper-Master image
 docker build --target master -t ghcr.io/munenick/multipaper-master .
-# Build the Multipaper server image
-docker build --target server -t ghcr.io/munenick/multipaper .
+# Build the Multipaper node image
+docker build --target node -t ghcr.io/munenick/multipaper .
 ```
 
 ## Troubleshooting
 
-### World files are not being generated by the server
+### World files are not being generated by the node
 
 On many systems the Docker daemon runs as root. If the directories being mounted to your containers don't exist, they will be created by Docker.
 
 MultiPaper processes within these containers do not run as the root user and therefore may be unable to write files into any directories created by the Docker daemon.
 
-If you find that your generated world files are not being synced to the `master` directory, please ensure that the directory is **not** owned by `root`.
+If you find that your generated world files are not being synced to the `master-data` directory, please ensure that the directory is **not** owned by `root`.
 
-Alternatively, you may add the following line to the `master` service to specify that application processes should run as `root` inside the container.
+このプロジェクトでは、最近のアップデートで名前付きボリュームを使用するよう変更されています。これにより、権限の問題は自動的に解決されるはずです。問題が解決しない場合は以下の方法を試してください：
 
 ```yaml
   master:
     container_name: master
     image: ghcr.io/munenick/multipaper-master:1.20
-    user: root # this line sets the user inside the container
+    user: root # このラインはコンテナ内のユーザーをrootに設定
     ports:
-      - 25565:25565 # Opens the proxy port
+      - 25565:25565 
     volumes:
-      - ./master:/app # Required to access world files
+      - ./master:/app # ローカルディレクトリをマウントする場合
 ```
+
+しかし、セキュリティ上の理由からrootユーザーの使用は推奨されません。代わりに名前付きボリュームを使用するか、マウントするディレクトリの所有権を適切に設定することをお勧めします。

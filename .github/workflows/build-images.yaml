@@ -77,11 +77,11 @@ jobs:
           context: .
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/multipaper:edge
-          target: server
+          target: node
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           cache-from: |
-            type=gha,scope=server
+            type=gha,scope=node
             type=gha,scope=base
             type=gha,scope=build
           cache-to: |
-            type=gha,scope=server,mode=max
+            type=gha,scope=node,mode=max
