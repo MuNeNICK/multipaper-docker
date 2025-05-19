@@ -174,11 +174,14 @@ jobs:
           MASTER_TAGS=$(echo '${{ inputs.master_tags }}' | tr '[:upper:]' '[:lower:]')
           SERVER_TAGS=$(echo '${{ inputs.server_tags }}' | tr '[:upper:]' '[:lower:]')
           
+          # Repository owner name must also be lowercase
+          REPO_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
+          
           # Add latest tags if this is the latest version or if forced via input
           if [[ "${{ steps.get_release.outputs.IS_LATEST_VERSION }}" == "true" || "${{ inputs.force_latest }}" == "true" ]]; then
             echo "Adding 'latest' tags as this is the latest version (or forced)"
-            MASTER_TAGS="$MASTER_TAGS,ghcr.io/${{ github.repository_owner }}/multipaper-master:latest"
-            SERVER_TAGS="$SERVER_TAGS,ghcr.io/${{ github.repository_owner }}/multipaper:latest"
+            MASTER_TAGS="$MASTER_TAGS,ghcr.io/$REPO_OWNER/multipaper-master:latest"
+            SERVER_TAGS="$SERVER_TAGS,ghcr.io/$REPO_OWNER/multipaper:latest"
           fi
           
           echo "MASTER_TAG=$MASTER_TAGS" >> $GITHUB_OUTPUT
