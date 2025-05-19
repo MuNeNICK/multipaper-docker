@@ -106,9 +106,24 @@ jobs:
               exit 1
             fi
             
-            BUILD=$(jq -r '.build' <<<"$RAW")
-            APP_NAME=$(jq -r '.downloads.application.name' <<<"$RAW")
-            MASTER_NAME=$(jq -r '.downloads.master.name' <<<"$RAW")
+            # Extract the latest build number from the builds array
+            BUILD=$(echo "$RAW" | jq -r '.builds | sort | last')
+            
+            # Check if we got a valid build number
+            if [[ -z "$BUILD" ]] || [[ "$BUILD" == "null" ]]; then
+              echo "::error::Failed to extract build number from API response"
+              echo "::error::API returned: $RAW"
+              exit 1
+            fi
+            
+            echo "Found latest build number: $BUILD"
+            
+            # Construct JAR filenames based on version and build
+            APP_NAME="multipaper-${FULL_VERSION}-${BUILD}.jar"
+            MASTER_NAME="multipaper-master-${FULL_VERSION}-${BUILD}.jar"
+            
+            echo "Constructed server JAR name: $APP_NAME"
+            echo "Constructed master JAR name: $MASTER_NAME"
           fi
 
           # Output URLs
